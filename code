@@ -1,0 +1,167 @@
+#include <SoftwareSerial.h>
+
+// Keypad Configuration (4x3)
+const byte ROWS = 4;
+const byte COLS = 3;
+
+byte rowPins[ROWS] = {9, 8, 7, 6};  // Keypad Rows
+byte colPins[COLS] = {5, 4, 3};     // Keypad Columns
+
+char keys[ROWS][COLS] = {
+  {'1', '2', '3'},
+  {'4', '5', '6'},
+  {'7', '8', '9'},
+  {'*', '0', '#'}
+};
+
+// GSM Module (SIM900A)
+SoftwareSerial gsmSerial(10, 11);  // RX, TX
+
+// Phone numbers
+const String MAIN_NUMBER = "+1234567890";  // Replace with your number
+const String BALANCE_NUMBER = "+987654321"; // Balance check number
+
+void setup() {
+  Serial.begin(9600);
+  gsmSerial.begin(9600);
+
+  // Set keypad rows as INPUT_PULLUP
+  for (byte r = 0; r < ROWS; r++) {
+    pinMode(rowPins[r], INPUT_PULLUP);
+  }
+
+  // Set keypad columns as OUTPUT (initially HIGH)
+  for (byte c = 0; c < COLS; c++) {
+    pinMode(colPins[c], OUTPUT);
+    digitalWrite(colPins[c], HIGH);
+  }
+
+  // Initialize GSM
+  delay(1000);
+  sendATCommand("AT", true);          // Check GSM
+  sendATCommand("AT+CMGF=1", true);  // Set SMS to text mode
+  sendATCommand("AT+CNMI=1,2,0,0,0", true);  // Enable SMS notifications
+
+  Serial.println("System Ready!");
+  printKeyCommands();  // Show available commands
+}
+
+void loop() {
+  char key = getKey();  // Get pressed key
+
+  if (key) {
+    Serial.print("Key Pressed: ");
+    Serial.println(key);
+
+    // Execute different commands based on key
+    switch (key) {
+      case '1': sendSMS(MAIN_NUMBER, "Hello! I'm using Arduino GSM."); break;
+      case '2': sendSMS(MAIN_NUMBER, "Emergency! Need help."); break;
+      case '3': sendSMS(MAIN_NUMBER, "I'll be there in 10 mins."); break;
+      case '4': makeCall(MAIN_NUMBER); break;
+      case '5': endCall(); break;
+      case '6': checkBalance(); break;
+      case '7': getSignalStrength(); break;
+      case '8': getBatteryStatus(); break;
+      case '9': sendATCommand("AT+CCLK?", true); break;  // Check time
+      case '0': sendATCommand("AT+CSQ", true); break;    // Signal quality
+      case '*': sendATCommand("AT+CREG?", true); break;  // Network registration
+      case '#': systemReset(); break;  // Reset GSM module
+      default: Serial.println("Unknown key!"); break;
+    }
+  }
+
+  // Check GSM responses
+  if (gsmSerial.available()) {
+    Serial.write(gsmSerial.read());
+  }
+}
+
+// --- Keypad Functions ---
+char getKey() {
+  for (byte c = 0; c < COLS; c++) {
+    digitalWrite(colPins[c], LOW);
+    for (byte r = 0; r < ROWS; r++) {
+      if (digitalRead(rowPins[r]) == LOW) {
+        delay(50);  // Debounce
+        while (digitalRead(rowPins[r]) == LOW);  // Wait for release
+        digitalWrite(colPins[c], HIGH);
+        return keys[r][c];
+      }
+    }
+    digitalWrite(colPins[c], HIGH);
+  }
+  return '\0';  // No key pressed
+}
+
+// --- GSM Functions ---
+String sendATCommand(String cmd, bool waitForResponse) {
+  String response = "";
+  gsmSerial.println(cmd);
+  if (waitForResponse) {
+    delay(500);
+    while (gsmSerial.available()) {
+      response += (char)gsmSerial.read();
+    }
+  }
+  return response;
+}
+
+void sendSMS(String number, String message) {
+  Serial.println("Sending SMS to: " + number);
+  sendATCommand("AT+CMGS=\"" + number + "\"", false);
+  delay(100);
+  gsmSerial.print(message);
+  delay(100);
+  gsmSerial.write(26);  // CTRL+Z to send
+  delay(1000);
+  Serial.println("SMS Sent!");
+}
+
+void makeCall(String number) {
+  Serial.println("Calling: " + number);
+  sendATCommand("ATD" + number + ";", true);
+}
+
+void endCall() {
+  Serial.println("Ending call...");
+  sendATCommand("ATH", true);
+}
+
+void checkBalance() {
+  Serial.println("Checking balance...");
+  sendSMS(BALANCE_NUMBER, "BAL");
+}
+
+void getSignalStrength() {
+  Serial.println("Checking signal...");
+  sendATCommand("AT+CSQ", true);
+}
+
+void getBatteryStatus() {
+  Serial.println("Checking battery...");
+  sendATCommand("AT+CBC", true);
+}
+
+void systemReset() {
+  Serial.println("Resetting GSM...");
+  sendATCommand("AT+CFUN=1,1", true);
+}
+
+// --- Helper Functions ---
+void printKeyCommands() {
+  Serial.println("\n=== Keypad Commands ===");
+  Serial.println("1: Send Hello SMS");
+  Serial.println("2: Send Emergency SMS");
+  Serial.println("3: Send ETA SMS");
+  Serial.println("4: Make Call");
+  Serial.println("5: End Call");
+  Serial.println("6: Check Balance");
+  Serial.println("7: Signal Strength");
+  Serial.println("8: Battery Status");
+  Serial.println("9: Check Time");
+  Serial.println("0: Signal Quality");
+  Serial.println("*: Network Status");
+  Serial.println("#: Reset GSM");
+  Serial.println("======================\n");
+}
