@@ -1,7 +1,7 @@
 #include <Keypad.h>
 #include <SoftwareSerial.h>
 
-SoftwareSerial sim800l(0, 1); // RX, TX (matches your schematic)
+SoftwareSerial sim800l(0, 1); // RX, TX
 
 // Keypad setup
 const byte ROWS = 4;
@@ -16,6 +16,9 @@ byte rowPins[ROWS] = {2, 3, 4, 5};
 byte colPins[COLS] = {6, 7, 8};
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
+// Variables to hold input
+String input = "";
+
 void setup() {
   Serial.begin(9600);
   sim800l.begin(9600);
@@ -24,36 +27,76 @@ void setup() {
 
 void loop() {
   char key = keypad.getKey();
+
   if (key) {
-    String message = getMessageForKey(key);
-    if (message != "") {
-      SendSMS(message);
-      Serial.print("Sent SMS: ");
-      Serial.println(message); // This line displays the message in the virtual terminal
+    if (key == '#') {
+      // # means "send"
+      String message = getMessageForCode(input);
+      if (message != "") {
+        SendSMS(message);
+        Serial.print("Sent SMS: ");
+        Serial.println(message);
+      } else {
+        Serial.println("Invalid code entered.");
+      }
+      input = ""; // Clear after sending or invalid
+    } else if (key == '*') {
+      input = ""; // * means "clear"
+      Serial.println("Input cleared.");
+    } else {
+      input += key;
+      Serial.print("Current input: ");
+      Serial.println(input);
     }
   }
-  // Display GSM response in virtual terminal
+
+  // Display GSM response in serial monitor
   if (sim800l.available()) {
     Serial.write(sim800l.read());
   }
 }
 
-String getMessageForKey(char key) {
-  switch(key) {
-    case '1': return "Material 1: 29536524";
-    case '2': return "Material 2: 29536522";
-    case '3': return "Material 3: 29558486";
-    case '4': return "Material 4: 29545983";
-    case '5': return "Material 5: 29564110";
-    case '6': return "Material 6: 29572827";
-    case '7': return "Material 7: 29564113";
-    case '8': return "Material 8: 29564109";
-    case '9': return "Material 9: 29537508";
-    case '0': return "Material 10: 28661834";
-    case '*': return "Material 11: 29572828";
-    case '#': return "Material 12: 29564107";
-    default: return "";
-  }
+String getMessageForCode(String code) {
+  if (code == "1") return "Material 1: 29546994";
+  else if (code == "2") return "Material 2: 29542970";
+  else if (code == "3") return "Material 3: 29545982";
+  else if (code == "4") return "Material 4: 29536593";
+  else if (code == "5") return "Material 5: 29531315";
+  else if (code == "6") return "Material 6: 29545966";
+  else if (code == "7") return "Material 7: 29545965";
+  else if (code == "8") return "Material 8: 29534518";
+  else if (code == "9") return "Material 9: 29545988";
+  else if (code == "10") return "Material 10: 29541895";
+  else if (code == "11") return "Material 11: 29536833";
+  else if (code == "12") return "Material 12: 29531022"; 
+  else if (code == "13") return "Material 13: 29545987";
+  else if (code == "14") return "Material 14: 29537509";
+  else if (code == "15") return "Material 15: 29545986";
+  else if (code == "16") return "Material 16: 29531177";
+  else if (code == "17") return "Material 17: 29550069";
+  else if (code == "18") return "Material 18: 29531022";
+  else if (code == "19") return "Material 19: 29531157";
+  else if (code == "20") return "Material 20: 29550070";
+  else if (code == "21") return "Material 21: 29557802";
+  else if (code == "22") return "Material 22: 29531160";
+  else if (code == "23") return "Material 23: 29560655";
+  else if (code == "24") return "Material 24: 29557802";
+  else if (code == "25") return "Material 25: 29546994";
+  else if (code == "26") return "Material 26: 29558372";
+  else if (code == "27") return "Material 27: 29558486";
+  else if (code == "28") return "Material 28: 29536833";
+  else if (code == "29") return "Material 29: 29541898";
+  else if (code == "30") return "Material 30: 29546972";
+  else if (code == "31") return "Material 31: 29541896";
+  else if (code == "32") return "Material 32: 29536231";
+  else if (code == "33") return "Material 33: 29545991";
+  else if (code == "34") return "Material 34: 29534518";
+  else if (code == "35") return "Material 35: 29536230";
+  else if (code == "36") return "Material 36: 29545990";
+  else if (code == "37") return "Material 37: 29537508";
+  else if (code == "38") return "Material 38: 8661834";
+  else if (code == "39") return "Material 39: 29573779";
+  else return ""; // Invalid
 }
 
 void SendSMS(String message) {
