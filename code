@@ -1,7 +1,7 @@
 #include <Keypad.h>
 #include <SoftwareSerial.h>
 
-SoftwareSerial sim800l(0, 1); // RX, TX
+SoftwareSerial sim800l(0, 1); // RX, TX for GSM
 
 const byte ROWS = 4;
 const byte COLS = 3;
@@ -15,7 +15,8 @@ byte rowPins[ROWS] = {2, 3, 4, 5};
 byte colPins[COLS] = {6, 7, 8};
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
-// State variables
+const int relayPin = 13;  // Relay connected to pin 13
+
 String input = "";
 String currentPhoneNumber = "9080659745"; // Default phone number
 
@@ -23,6 +24,10 @@ void setup() {
   Serial.begin(9600);
   sim800l.begin(9600);
   delay(500);
+
+  pinMode(relayPin, OUTPUT);
+  digitalWrite(relayPin, LOW); // Relay OFF initially
+
   Serial.println("Ready. Enter code then press #.");
 }
 
@@ -34,12 +39,16 @@ void loop() {
       input = "";
       Serial.println("Input cleared.");
     } else if (key == '#') {
-      if (setPhoneNumberForCode(input)) {
+      if (input == "60") {
+        digitalWrite(relayPin, LOW); // Turn OFF relay
+        Serial.println("Relay turned OFF manually.");
+      } else if (setPhoneNumberForCode(input)) {
         Serial.print("Phone number updated to: ");
         Serial.println(currentPhoneNumber);
       } else {
         String message = getMessageForCode(input);
-        if (message != "") {
+        if (message != "Invalid material no") {
+          digitalWrite(relayPin, HIGH); // Turn ON relay
           SendSMS(currentPhoneNumber, message);
           Serial.print("Sent SMS to ");
           Serial.print(currentPhoneNumber);
@@ -112,10 +121,10 @@ bool setPhoneNumberForCode(String code) {
     currentPhoneNumber = "9383920190";
     return true;
   } else if (code == "41") {
-    currentPhoneNumber = "9828282292"; // Example for another number
+    currentPhoneNumber = "9828282292";
     return true;
   }
-  return false; // Not a phone setting code
+  return false;
 }
 
 // --- SMS sending ---
