@@ -3,7 +3,6 @@
 
 SoftwareSerial sim800l(0, 1); // RX, TX
 
-// Keypad setup
 const byte ROWS = 4;
 const byte COLS = 3;
 char keys[ROWS][COLS] = {
@@ -16,33 +15,41 @@ byte rowPins[ROWS] = {2, 3, 4, 5};
 byte colPins[COLS] = {6, 7, 8};
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
-// Variables to hold input
+// State variables
 String input = "";
+String currentPhoneNumber = "9080659745"; // Default phone number
 
 void setup() {
   Serial.begin(9600);
   sim800l.begin(9600);
   delay(500);
+  Serial.println("Ready. Enter code then press #.");
 }
 
 void loop() {
   char key = keypad.getKey();
 
   if (key) {
-    if (key == '#') {
-      // # means "send"
-      String message = getMessageForCode(input);
-      if (message != "") {
-        SendSMS(message);
-        Serial.print("Sent SMS: ");
-        Serial.println(message);
-      } else {
-        Serial.println("Invalid code entered.");
-      }
-      input = ""; // Clear after sending or invalid
-    } else if (key == '*') {
-      input = ""; // * means "clear"
+    if (key == '*') {
+      input = "";
       Serial.println("Input cleared.");
+    } else if (key == '#') {
+      if (setPhoneNumberForCode(input)) {
+        Serial.print("Phone number updated to: ");
+        Serial.println(currentPhoneNumber);
+      } else {
+        String message = getMessageForCode(input);
+        if (message != "") {
+          SendSMS(currentPhoneNumber, message);
+          Serial.print("Sent SMS to ");
+          Serial.print(currentPhoneNumber);
+          Serial.print(": ");
+          Serial.println(message);
+        } else {
+          Serial.println("Invalid code entered.");
+        }
+      }
+      input = "";
     } else {
       input += key;
       Serial.print("Current input: ");
@@ -50,12 +57,12 @@ void loop() {
     }
   }
 
-  // Display GSM response in serial monitor
   if (sim800l.available()) {
     Serial.write(sim800l.read());
   }
 }
 
+// --- Lookup for material message ---
 String getMessageForCode(String code) {
   if (code == "1") return "Material 1: 29546994";
   else if (code == "2") return "Material 2: 29542970";
@@ -96,13 +103,26 @@ String getMessageForCode(String code) {
   else if (code == "37") return "Material 37: 29537508";
   else if (code == "38") return "Material 38: 8661834";
   else if (code == "39") return "Material 39: 29573779";
-  else return ""; // Invalid
+  else return "Invalid material no";
 }
 
-void SendSMS(String message) {
+// --- Update phone number if code matches ---
+bool setPhoneNumberForCode(String code) {
+  if (code == "40") {
+    currentPhoneNumber = "9383920190";
+    return true;
+  } else if (code == "41") {
+    currentPhoneNumber = "9828282292"; // Example for another number
+    return true;
+  }
+  return false; // Not a phone setting code
+}
+
+// --- SMS sending ---
+void SendSMS(String number, String message) {
   sim800l.print("AT+CMGF=1\r");
   delay(100);
-  sim800l.print("AT+CMGS=\"+919080659745\"\r"); // Replace with your number
+  sim800l.print("AT+CMGS=\"+91" + number + "\"\r");
   delay(500);
   sim800l.print(message);
   delay(500);
