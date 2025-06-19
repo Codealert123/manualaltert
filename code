@@ -1,8 +1,19 @@
 #include <Keypad.h>
 #include <SoftwareSerial.h>
+#include <LiquidCrystal.h>  // For 16x2 LCD
 
+// --- Function Declarations ---
+String getMessageForCode(String code);
+bool setPhoneNumberForCode(String code);
+void SendSMS(String number, String message);
+
+// --- GSM and LCD Setup ---
 SoftwareSerial sim800l(0, 1); // RX, TX for GSM
 
+// LCD pin connections (RS, EN, D4, D5, D6, D7)
+LiquidCrystal lcd(A0, A1, A2, A3, A4, A5);
+
+// --- Keypad Setup ---
 const byte ROWS = 4;
 const byte COLS = 3;
 char keys[ROWS][COLS] = {
@@ -15,20 +26,23 @@ byte rowPins[ROWS] = {2, 3, 4, 5};
 byte colPins[COLS] = {6, 7, 8};
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
-const int relayPin = 13;  // Relay connected to pin 13
-
+// --- Other Config ---
+const int relayPin = 13;
 String input = "";
-String currentPhoneNumber = "9080659745"; // Default phone number
+String currentPhoneNumber = "9080659745";
 
 void setup() {
   Serial.begin(9600);
   sim800l.begin(9600);
   delay(500);
 
-  pinMode(relayPin, OUTPUT);
-  digitalWrite(relayPin, LOW); // Relay OFF initially
+  lcd.begin(16, 2);
+  lcd.print("System Ready");
+  lcd.setCursor(0, 1);
+  lcd.print("Enter code:");
 
-  Serial.println("Ready. Enter code then press #.");
+  pinMode(relayPin, OUTPUT);
+  digitalWrite(relayPin, LOW); // Relay OFF
 }
 
 void loop() {
@@ -38,31 +52,52 @@ void loop() {
     if (key == '*') {
       input = "";
       Serial.println("Input cleared.");
+      lcd.clear();
+      lcd.print("Input cleared");
+      delay(1000);
+      lcd.clear();
+      lcd.print("Enter code:");
     } else if (key == '#') {
+      lcd.clear();
+      lcd.setCursor(0, 0);
+
       if (input == "60") {
-        digitalWrite(relayPin, LOW); // Turn OFF relay
+        digitalWrite(relayPin, LOW);
         Serial.println("Relay turned OFF manually.");
+        lcd.print("Relay OFF");
       } else if (setPhoneNumberForCode(input)) {
-        Serial.print("Phone number updated to: ");
+        Serial.print("Phone updated: ");
         Serial.println(currentPhoneNumber);
+        lcd.print("Phone Updated");
+        lcd.setCursor(0, 1);
+        lcd.print(currentPhoneNumber);
       } else {
         String message = getMessageForCode(input);
         if (message != "Invalid material no") {
-          digitalWrite(relayPin, HIGH); // Turn ON relay
+          digitalWrite(relayPin, HIGH);
           SendSMS(currentPhoneNumber, message);
-          Serial.print("Sent SMS to ");
-          Serial.print(currentPhoneNumber);
-          Serial.print(": ");
+          Serial.print("Sent SMS: ");
           Serial.println(message);
+          lcd.print("SMS Sent");
+          lcd.setCursor(0, 1);
+          lcd.print("Relay ON");
         } else {
           Serial.println("Invalid code entered.");
+          lcd.print("Invalid Code");
         }
       }
+
       input = "";
+      delay(2000);
+      lcd.clear();
+      lcd.print("Enter code:");
     } else {
       input += key;
       Serial.print("Current input: ");
       Serial.println(input);
+      lcd.clear();
+      lcd.print("Input: ");
+      lcd.print(input);
     }
   }
 
@@ -71,7 +106,7 @@ void loop() {
   }
 }
 
-// --- Lookup for material message ---
+// --- Material Lookup Function ---
 String getMessageForCode(String code) {
   if (code == "1") return "Material 1: 29546994";
   else if (code == "2") return "Material 2: 29542970";
@@ -115,7 +150,7 @@ String getMessageForCode(String code) {
   else return "Invalid material no";
 }
 
-// --- Update phone number if code matches ---
+// --- Update phone number ---
 bool setPhoneNumberForCode(String code) {
   if (code == "40") {
     currentPhoneNumber = "9383920190";
@@ -127,7 +162,7 @@ bool setPhoneNumberForCode(String code) {
   return false;
 }
 
-// --- SMS sending ---
+// --- Send SMS through GSM ---
 void SendSMS(String number, String message) {
   sim800l.print("AT+CMGF=1\r");
   delay(100);
@@ -135,7 +170,7 @@ void SendSMS(String number, String message) {
   delay(500);
   sim800l.print(message);
   delay(500);
-  sim800l.print((char)26); // Ctrl+Z
+  sim800l.print((char)26); // End with Ctrl+Z
   delay(500);
   sim800l.println();
 }
